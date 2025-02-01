@@ -70,6 +70,11 @@
         <div class="mt-4 text-center text-sm opacity-70">
           <p v-if="exchangeRate">1 {{ fromCurrency.code }} = {{ exchangeRate }} {{ toCurrency.code }}</p>
         </div>
+
+        <HistoricalRates
+          :from-currency="fromCurrency"
+          :to-currency="toCurrency"
+        />
       </div>
     </div>
   </div>
@@ -92,7 +97,7 @@ const currencyOptions = computed(() =>
 
 const amount = ref('')
 const fromCurrency = ref(currencyOptions.value.find(c => c.code === 'USD'))
-const toCurrency = ref(currencyOptions.value.find(c => c.code === 'EUR'))
+const toCurrency = ref(currencyOptions.value.find(c => c.code === 'EGP'))
 const convertedAmount = ref('')
 const exchangeRate = ref(null)
 

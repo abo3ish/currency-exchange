@@ -41,7 +41,6 @@ export const getHistoricalRates = async (
     endDate: string
 ): Promise<Record<string, APIResponse>> => {
     try {
-        const results: Record<string, APIResponse> = {};
         const start = new Date(startDate + 'T00:00:00Z');
         const end = new Date(endDate + 'T00:00:00Z');
         
@@ -49,20 +48,29 @@ export const getHistoricalRates = async (
         if (isNaN(start.getTime()) || isNaN(end.getTime())) {
             throw new Error('Invalid date format');
         }
-        
+
+        const dates: string[] = [];
         for (let date = new Date(start); date <= end; date.setDate(date.getDate() + 1)) {
-            const dateStr = date.toISOString().split('T')[0];
-            const cacheKey = `exchange_rates_${base.toLowerCase()}_${dateStr}`;
-            
-            const cachedRate = await redisClient.get(cacheKey);
-            if (cachedRate) {
-                results[dateStr] = JSON.parse(cachedRate);
-            } else {
-                await getExchangeRate(base.toLowerCase(), dateStr);
-            }
+            dates.push(date.toISOString().split('T')[0]);
         }
-        
-        return results;
+
+        const fetchPromises = dates.map(async (dateStr) => {
+            const cacheKey = `exchange_rates_${base.toLowerCase()}_${dateStr}`;
+            const cachedRate = await redisClient.get(cacheKey);
+            
+            if (cachedRate) {
+                return { dateStr, data: JSON.parse(cachedRate) };
+            }
+            
+            const data = await getExchangeRate(base.toLowerCase(), dateStr);
+            return { dateStr, data };
+        });
+
+        const results = await Promise.all(fetchPromises);
+        return results.reduce((acc, { dateStr, data }) => {
+            acc[dateStr] = data;
+            return acc;
+        }, {} as Record<string, APIResponse>);
     } catch (error) {
         throw new Error("Failed to fetch historical rates");
     }

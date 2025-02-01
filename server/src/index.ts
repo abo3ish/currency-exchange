@@ -49,9 +49,36 @@ app.post('/exchange', async (req: Request, res: Response) => {
 
 app.get('/history', async (req: Request, res: Response) => {
     const { base, target, start, end } = req.query;
-    const data = await getHistoricalRates(base as string, start as string, end as string);
-    return res.send(data);
-})
+    const targetCurrencies = target ? (Array.isArray(target) ? target : [target]) : [];
+    
+    try {
+        const data = await getHistoricalRates(base as string, start as string, end as string);
+        
+        if (targetCurrencies.length > 0) {
+            const filteredData = Object.fromEntries(
+                Object.entries(data).map(([date, rates]) => {
+                    const ratesData = rates[base as string] || {};
+                    return [
+                        date,
+                        {
+                            date,
+                            rates: targetCurrencies.map(targetCurrency => ({
+                                from: base,
+                                to: targetCurrency,
+                                rate: ratesData[targetCurrency as string] || null
+                            }))
+                        }
+                    ];
+                })
+            );
+            return res.json(filteredData);
+        }
+        
+        return res.json(data);
+    } catch (error) {
+        return res.status(500).json({ error: 'Failed to fetch historical rates' });
+    }
+});
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
