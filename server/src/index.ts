@@ -11,9 +11,9 @@ app.get('/', (req, res) => {
 })
 
 
-app.get('/exchange', async (req: Request, res: Response) => {
+app.post('/exchange', async (req: Request, res: Response) => {
     try {
-        const { from, to, amount } = req.query;
+        const { from, to, amount } = req.body;
         if (!from || !to || !amount) {
             return res.status(400).json({ error: 'Missing parameters. Required: from, to, amount' });
         }
