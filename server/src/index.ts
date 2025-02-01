@@ -1,4 +1,4 @@
-import { getExchangeRate, exchange, CurrencyCode } from "./services/exchangeService";
+import { exchange, CurrencyCode, getHistoricalRates } from "./services/exchangeService";
 import express from "express";
 import cors from "cors";
 import { Request, Response } from "express";
@@ -13,10 +13,21 @@ app.get('/', (req, res) => {
 
 app.post('/exchange', async (req: Request, res: Response) => {
     try {
-        const { from, to, amount } = req.body;
+        const { from, to, amount, date } = req.body;
         if (!from || !to || !amount) {
             return res.status(400).json({ error: 'Missing parameters. Required: from, to, amount' });
         }
+        let dateToUse = date;
+        if (dateToUse) {
+            const parsedDate = new Date(dateToUse + 'T00:00:00Z');
+            if (isNaN(parsedDate.getTime())) {
+                throw new Error('Invalid date format');
+            }
+        } else {
+            const today = new Date();
+            dateToUse = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+        }
+
 
         const parsedAmount = Number(amount);
         if (isNaN(parsedAmount)) {
@@ -26,7 +37,8 @@ app.post('/exchange', async (req: Request, res: Response) => {
         const result = await exchange(
             from as CurrencyCode,
             to as CurrencyCode,
-            parsedAmount
+            parsedAmount,
+            dateToUse
         );
         
         return res.json(result);
@@ -34,6 +46,12 @@ app.post('/exchange', async (req: Request, res: Response) => {
         return res.status(500).json({ error: 'Currency conversion failed' });
     }
 });
+
+app.get('/history', async (req: Request, res: Response) => {
+    const { base, target, start, end } = req.query;
+    const data = await getHistoricalRates(base as string, start as string, end as string);
+    return res.send(data);
+})
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
