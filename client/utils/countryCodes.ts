@@ -1,4 +1,4 @@
-const currencyToCountry = {
+export const currencyToCountry = {
   // Major Fiat Currencies
   'USD': 'US', // United States Dollar
   'EUR': 'EU', // Euro
@@ -73,6 +73,6 @@ const currencyToCountry = {
   'BUSD': 'US', // Binance USD (US-based)
 }
 
-export const getCountryCode = (currencyCode) => {
-  return currencyToCountry[currencyCode] || null
+export const getCountryCode = (currencyCode: string): string | null => {
+  return currencyToCountry[currencyCode as keyof typeof currencyToCountry] || null
 }

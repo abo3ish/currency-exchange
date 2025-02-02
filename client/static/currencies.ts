@@ -1,4 +1,4 @@
-{
+export const currencyList = {
     "1inch": "1inch",
     "aave": "Aave",
     "ada": "Cardano",

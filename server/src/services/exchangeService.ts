@@ -37,6 +37,7 @@ export const getExchangeRate = async (base: string, date?: string): Promise<APIR
 
 export const getHistoricalRates = async (
     base: string,
+    targets: string[],
     startDate: string,
     endDate: string
 ): Promise<Record<string, APIResponse>> => {
@@ -85,19 +86,27 @@ export type { CurrencyCode };
 
 export const exchange = async (
     from: CurrencyCode,
-    to: CurrencyCode,
+    to: CurrencyCode[],
     amount: number,
     date: string
-): Promise<{ result: number }> => {
+): Promise<{ results: { currency: string, result: number }[] }> => {
     try {
         const response = await getExchangeRate(from.toLowerCase(), date);
-        if (!response[from.toLowerCase()] || !response[from.toLowerCase()][to.toLowerCase()]) {
-            throw new Error('Invalid currency pair');
-        }
         
-        const rate = response[from.toLowerCase()][to.toLowerCase()];
-        const result = amount * rate;
-        return { result: Number(result.toFixed(2)) };
+        const results = to.map(targetCurrency => {
+            if (!response[from.toLowerCase()] || !response[from.toLowerCase()][targetCurrency.toLowerCase()]) {
+                throw new Error(`Invalid currency pair: ${from}-${targetCurrency}`);
+            }
+            
+            const rate = response[from.toLowerCase()][targetCurrency.toLowerCase()];
+            const result = amount * rate;
+            return {
+                currency: targetCurrency,
+                result: Number(result.toFixed(2))
+            };
+        });
+
+        return { results };
     } catch (error) {
         throw new Error('Failed to perform currency conversion');
     }

@@ -17,6 +17,10 @@ app.post('/exchange', async (req: Request, res: Response) => {
         if (!from || !to || !amount) {
             return res.status(400).json({ error: 'Missing parameters. Required: from, to, amount' });
         }
+
+        // Ensure 'to' is always an array
+        const targetCurrencies = Array.isArray(to) ? to : [to];
+        
         let dateToUse = date;
         if (dateToUse) {
             const parsedDate = new Date(dateToUse + 'T00:00:00Z');
@@ -28,7 +32,6 @@ app.post('/exchange', async (req: Request, res: Response) => {
             dateToUse = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
         }
 
-
         const parsedAmount = Number(amount);
         if (isNaN(parsedAmount)) {
             return res.status(400).json({ error: 'Amount must be a valid number' });
@@ -36,13 +39,14 @@ app.post('/exchange', async (req: Request, res: Response) => {
 
         const result = await exchange(
             from as CurrencyCode,
-            to as CurrencyCode,
+            targetCurrencies as CurrencyCode[],
             parsedAmount,
             dateToUse
         );
         
         return res.json(result);
     } catch (error) {
+        console.error('Exchange error:', error);
         return res.status(500).json({ error: 'Currency conversion failed' });
     }
 });
@@ -52,29 +56,30 @@ app.get('/history', async (req: Request, res: Response) => {
     const targetCurrencies = target ? (Array.isArray(target) ? target : [target]) : [];
     
     try {
-        const data = await getHistoricalRates(base as string, start as string, end as string);
+        const data = await getHistoricalRates(
+            base as string, 
+            targetCurrencies as string[], 
+            start as string, 
+            end as string
+        );
         
-        if (targetCurrencies.length > 0) {
-            const filteredData = Object.fromEntries(
-                Object.entries(data).map(([date, rates]) => {
-                    const ratesData = rates[base as string] || {};
-                    return [
+        const filteredData = Object.fromEntries(
+            Object.entries(data).map(([date, rates]) => {
+                const ratesData = rates[base as string] || {};
+                return [
+                    date,
+                    {
                         date,
-                        {
-                            date,
-                            rates: targetCurrencies.map(targetCurrency => ({
-                                from: base,
-                                to: targetCurrency,
-                                rate: ratesData[targetCurrency as string] || null
-                            }))
-                        }
-                    ];
-                })
-            );
-            return res.json(filteredData);
-        }
-        
-        return res.json(data);
+                        rates: targetCurrencies.map(targetCurrency => ({
+                            from: base,
+                            to: targetCurrency,
+                            rate: ratesData[targetCurrency as string] || null
+                        }))
+                    }
+                ];
+            })
+        );
+        return res.json(filteredData);
     } catch (error) {
         return res.status(500).json({ error: 'Failed to fetch historical rates' });
     }
