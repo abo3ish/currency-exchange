@@ -2,18 +2,22 @@
   <div>
     <CurrencyExchangeInput
       :currencyOptions="currencyOptions"
-      v-model:fromCurrency="fromCurrency"
-      v-model:targetCurrencies="targetCurrencies"
+      :fromCurrency="fromCurrency"
+      :targetCurrencies="targetCurrencies"
       v-model:amount="amount"
       v-model:convertedAmounts="convertedAmounts"
       :exchangeRates="exchangeRates"
       @fromAmountChange="handleFromAmountChange"
+      @update:fromCurrency="$emit('update:fromCurrency', $event)"
+      @update:targetCurrencies="handleTargetCurrenciesUpdate"
     />
   </div>
 </template>
 
 <script setup lang="ts">
+import { ref, computed, watch, onMounted } from 'vue'
 import {currencyList} from '../static/currencies'
+import { useRuntimeConfig } from 'nuxt/app';
 
 interface Currency {
   code: string;
@@ -25,6 +29,11 @@ const emit = defineEmits<{
   'update:targetCurrencies': [value: Currency[]];
 }>()
 
+const props = defineProps<{
+  fromCurrency: Currency;
+  targetCurrencies: Currency[];
+}>()
+
 const currencyOptions = computed(() => 
   Object.entries(currencyList).map(([code, name]) => ({
     code: code.toUpperCase(),
@@ -34,17 +43,13 @@ const currencyOptions = computed(() =>
 
 // Initialize amount with '1' instead of empty string
 const amount = ref('1')
-const fromCurrency = ref<Currency>(currencyOptions.value.find(c => c.code === 'USD') || { code: 'USD', name: 'US Dollar' })
-const targetCurrencies = ref<Currency[]>([
-  currencyOptions.value.find(c => c.code === 'EUR') || { code: 'EUR', name: 'Euro' },
-  currencyOptions.value.find(c => c.code === 'GBP') || { code: 'GBP', name: 'British Pound' },
-//   currencyOptions.value.find(c => c.code === 'JPY') || { code: 'JPY', name: 'Japanese Yen' },
-])
-const convertedAmounts = ref<string[]>(new Array(targetCurrencies.value.length).fill(''))
-const exchangeRates = ref<(string | null)[]>(new Array(targetCurrencies.value.length).fill(null))
+const convertedAmounts = ref<string[]>(new Array(props.targetCurrencies.length).fill(''))
+const exchangeRates = ref<(string | null)[]>(new Array(props.targetCurrencies.length).fill(null))
 
 const convertCurrency = async () => {
   try {
+    if (!props.targetCurrencies.length) return;
+    
     const runtimeConfig = useRuntimeConfig()
     const response = await fetch(`${runtimeConfig.public.API_URL}/exchange`, {
       method: 'POST',
@@ -53,13 +58,17 @@ const convertCurrency = async () => {
       },
       body: JSON.stringify({
         amount: Number(amount.value),
-        from: fromCurrency.value.code.toLowerCase(),
-        to: targetCurrencies.value.map(c => c.code.toLowerCase()),
+        from: props.fromCurrency.code.toLowerCase(),
+        to: props.targetCurrencies.map(c => c.code.toLowerCase()),
       }),
     })
     const data = await response.json()
     
-    data.results.forEach((result, index) => {
+    // Reset arrays to match current target currencies length
+    convertedAmounts.value = new Array(props.targetCurrencies.length).fill('');
+    exchangeRates.value = new Array(props.targetCurrencies.length).fill(null);
+    
+    data.results.forEach((result: { result: number; }, index: number) => {
       convertedAmounts.value[index] = result.result.toString()
       exchangeRates.value[index] = (result.result / Number(amount.value)).toFixed(6)
     })
@@ -72,22 +81,31 @@ const handleFromAmountChange = async () => {
   if (amount.value) {
     await convertCurrency()
   } else {
-    convertedAmounts.value = targetCurrencies.value.map(() => '')
-    exchangeRates.value = targetCurrencies.value.map(() => null)
+    convertedAmounts.value = props.targetCurrencies.map(() => '')
+    exchangeRates.value = props.targetCurrencies.map(() => null)
   }
 }
 
-// Watch for changes in currencies or amount
-watch([fromCurrency, targetCurrencies], async () => {
-  if (amount.value) {
-    await handleFromAmountChange()
+const handleTargetCurrenciesUpdate = (newTargets: Currency[]) => {
+  // Resize arrays to match new target currencies length
+  convertedAmounts.value = convertedAmounts.value.slice(0, newTargets.length);
+  exchangeRates.value = exchangeRates.value.slice(0, newTargets.length);
+  
+  // Fill with empty values if needed
+  while (convertedAmounts.value.length < newTargets.length) {
+    convertedAmounts.value.push('');
+    exchangeRates.value.push(null);
   }
-}, { deep: true })
+  
+  emit('update:targetCurrencies', newTargets);
+  // Trigger conversion for the new currency
+  handleFromAmountChange();
+}
 
-// Add watcher to emit target currencies changes
-watch(targetCurrencies, (newVal) => {
-  emit('update:targetCurrencies', newVal)
-}, { deep: true })
+// Watch for changes in currencies or amount
+watch([() => props.fromCurrency, () => props.targetCurrencies], async () => {
+  await handleFromAmountChange()
+}, { deep: true, immediate: true })
 
 // Add onMounted to trigger initial conversion
 onMounted(() => {

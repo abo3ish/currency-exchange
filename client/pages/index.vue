@@ -1,46 +1,31 @@
 <template>
-  <div class="min-h-screen bg-gradient flex items-center justify-center p-4 md:p-8">
-    <div class="card w-full max-w-5xl bg-white shadow-lg">
-      <div class="card-body p-6 md:p-8">
-        <div class="flex flex-col items-center mb-8">
-          <h2 class="text-2xl font-semibold text-neutral mb-2">Currency Exchange</h2>
-          <p class="text-neutral/60 text-center text-sm">Real-time currency conversion and historical rates tracking</p>
-        </div>
-        
-        <div class="divider my-2"></div>
-        
-        <CurrencyExchange
-          v-model:fromCurrency="fromCurrency"
-          v-model:targetCurrencies="targetCurrencies"
-          class="mb-8"
-        />
-
-        <div class="divider my-2"></div>
-
-        <HistoricalRates
-          :from-currency="fromCurrency"
-          :target-currencies="targetCurrencies"
-          class="mt-4"
-        />
-      </div>
-    </div>
+  <div class="container mx-auto px-4 py-8 space-y-8">
+    <CurrencyExchange
+      v-model:fromCurrency="fromCurrency"
+      v-model:targetCurrencies="targetCurrencies"
+    />
+    <HistoricalRates
+      :fromCurrency="fromCurrency"
+      :targetCurrencies="targetCurrencies"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref } from 'vue';
+import { currencyList } from '../static/currencies';
 
 interface Currency {
   code: string;
   name: string;
 }
 
-const fromCurrency = ref<Currency>({ code: 'USD', name: 'US Dollar' })
+// Initialize currencies with default values
+const fromCurrency = ref<Currency>({ code: 'USD', name: currencyList['usd'] });
 const targetCurrencies = ref<Currency[]>([
-  { code: 'EUR', name: 'Euro' },
-  { code: 'GBP', name: 'British Pound' },
-  // { code: 'JPY', name: 'Japanese Yen' }
-])
+  { code: 'EUR', name: currencyList['eur'] },
+  { code: 'GBP', name: currencyList['gbp'] },
+]);
 </script>
 
 <style>

@@ -1,12 +1,22 @@
 <template>
   <div class="card bg-gradient text-primary-content shadow-lg">
     <div class="card-body">
-      <h3 class="card-title text-xl font-semibold mb-6 flex items-center gap-2">
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z" />
-        </svg>
-        Historical Exchange Rates
-      </h3>
+      <div class="flex justify-between items-center mb-6">
+        <h3 class="card-title text-xl font-semibold flex items-center gap-2">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z" />
+          </svg>
+          Historical Exchange Rates
+        </h3>
+        <select v-model="selectedPeriod" class="select select-sm select-bordered">
+          <option value="7">1 Week</option>
+          <option value="30">1 Month</option>
+          <option value="90">3 Months</option>
+          <option value="180">6 Months</option>
+          <option value="270">9 Months</option>
+          <!-- <option value="365">1 Year</option> -->
+        </select>
+      </div>
       <div class="w-full h-[300px] bg-base-100 rounded-box p-4 shadow-inner">
         <canvas ref="chartRef"></canvas>
       </div>
@@ -16,6 +26,8 @@
 
 <script setup lang="ts">
 import { Chart } from 'chart.js/auto'
+import { useRuntimeConfig } from 'nuxt/app';
+import { ref, watch, onMounted } from 'vue';
 
 interface Currency {
   code: string;
@@ -39,13 +51,15 @@ const chartColors = [
   '#4ECDC4'             // Turquoise
 ]
 
+const selectedPeriod = ref(30)
+
 const fetchHistoricalData = async () => {
   try {
     if (!props.targetCurrencies?.length) return null;
     
     const runtimeConfig = useRuntimeConfig()
     const endDate = new Date().toISOString().split('T')[0]
-    const startDate = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+    const startDate = new Date(Date.now() - selectedPeriod.value * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
     
     const targetParams = props.targetCurrencies
       .map(c => `target=${c.code.toLowerCase()}`)
@@ -128,7 +142,7 @@ const updateChart = async () => {
   })
 }
 
-watch([() => props.fromCurrency, () => props.targetCurrencies], async () => {
+watch([() => props.fromCurrency, () => props.targetCurrencies, selectedPeriod], async () => {
   if (props.fromCurrency && props.targetCurrencies.length > 0) {
     await updateChart()
   }
@@ -139,4 +153,5 @@ onMounted(async () => {
     await updateChart()
   }
 })
+
 </script>

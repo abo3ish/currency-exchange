@@ -1,25 +1,29 @@
 <template>
   <div class="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center w-full">
     <div class="v-select-container" :class="{ 'is-source': !readonly }">
-      <v-select
-        v-model="modelCurrency"
-        :options="currencyOptions"
-        :searchable="true"
-        :clearable="false"
-        class="style-chooser w-full sm:flex-1 min-w-[200px]"
-        :class="{ 'source-select': !readonly, 'target-select': readonly }"
-        :get-option-label="(option) => `${getFlag(option.code)} ${option.code} - ${option.name}`"
-      >
-        <template #option="{ code, name }">
-          <span>{{ getFlag(code) }} {{ code }} - {{ name }}</span>
-        </template>
-      </v-select>
+      <client-only>
+        <v-select
+          v-model="modelCurrency"
+          :options="currencyOptions"
+          :searchable="true"
+          :clearable="false"
+          class="style-chooser w-full sm:flex-1 min-w-[200px]"
+          :class="{ 'source-select': !readonly, 'target-select': readonly }"
+          :get-option-label="getOptionLabel"
+          @search="handleSearch"
+          :key="`select-${index || 0}`"
+        >
+          <template #option="{ code, name }">
+            <span>{{ getFlag(code) }} {{ code }} - {{ name }}</span>
+          </template>
+        </v-select>
+      </client-only>
     </div>
     <div class="flex gap-2 items-center w-full sm:flex-1 relative z-10">
       <input 
-        type="number"
-        v-model="modelAmount"
-        @input="$emit('amountChange')"
+        type="text"
+        :value="amount"
+        @input="handleInput"
         class="input input-bordered flex-1 bg-base-100"
         :placeholder="placeholder"
         :readonly="readonly"
@@ -42,6 +46,7 @@ import { computed } from 'vue'
 import vSelect from 'vue-select'
 import 'vue-select/dist/vue-select.css'
 import { getCountryCode } from '../utils/countryCodes'
+// Remove formatNumber import
 
 interface Currency {
   code: string;
@@ -63,6 +68,7 @@ const emit = defineEmits<{
   'update:amount': [value: string];
   'amountChange': [];
   'remove': [];
+  'search': [query: string];  // Add search event declaration
 }>()
 
 const modelCurrency = computed({
@@ -78,8 +84,25 @@ const modelAmount = computed({
 const getFlag = (currencyCode: string) => {
   const code = getCountryCode(currencyCode.toUpperCase())
   if (!code) return ''
-  return String.fromCodePoint(...[...code.toUpperCase()].map(c => 0x1F1A5 + c.charCodeAt()))
+  return String.fromCodePoint(...[...code.toUpperCase()].map(c => 0x1F1A5 + c.charCodeAt(0)))
 }
+
+const getOptionLabel = (option: Currency) => `${getFlag(option.code)} ${option.code} - ${option.name}`
+
+const handleSearch = (search: string) => {
+  emit('search', search)
+}
+
+const handleInput = (event: Event) => {
+  const input = event.target as HTMLInputElement;
+  const value = input.value;
+  
+  // Only emit if it's a valid number or empty
+  if (!value || /^\d*\.?\d*$/.test(value)) {
+    emit('update:amount', value);
+    emit('amountChange');
+  }
+};
 </script>
 
 <style scoped>
