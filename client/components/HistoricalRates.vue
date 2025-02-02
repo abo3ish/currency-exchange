@@ -17,7 +17,10 @@
           <!-- <option value="365">1 Year</option> -->
         </select>
       </div>
-      <div class="w-full h-[300px] bg-base-100 rounded-box p-4 shadow-inner">
+      <div class="w-full h-[300px] bg-base-100 rounded-box p-4 shadow-inner relative">
+        <div v-if="isLoading" class="absolute inset-0 flex items-center justify-center bg-base-100/50 backdrop-blur-sm">
+          <div class="loading loading-spinner loading-lg text-primary"></div>
+        </div>
         <canvas ref="chartRef"></canvas>
       </div>
     </div>
@@ -52,8 +55,10 @@ const chartColors = [
 ]
 
 const selectedPeriod = ref(30)
+const isLoading = ref(false)
 
 const fetchHistoricalData = async () => {
+  isLoading.value = true
   try {
     if (!props.targetCurrencies?.length) return null;
     
@@ -72,6 +77,8 @@ const fetchHistoricalData = async () => {
   } catch (error) {
     console.error('Error fetching historical data:', error)
     return null
+  } finally {
+    isLoading.value = false
   }
 }
 

@@ -29,6 +29,10 @@ export default defineNuxtConfig({
             'end': 'padding-inline-end'
           }
         }
+      },
+      daisyui: {
+        themes: ["light"],
+        darkTheme: "light",
       }
     }
   },
