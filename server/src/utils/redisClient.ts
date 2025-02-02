@@ -17,3 +17,11 @@ redisClient.on('error', (error) => {
 redisClient.on('connect', () => {
     console.log('Redis Client Connected');
 });
+
+export const getCachedData = async (cacheKey: string) => {
+    return await redisClient.get(cacheKey);
+};
+
+export const setCachedData = async (cacheKey: string, data: any, ttl: number) => {
+    return await redisClient.setEx(cacheKey, ttl, JSON.stringify(data));
+};

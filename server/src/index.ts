@@ -5,7 +5,7 @@ import { Request, Response } from "express";
 import { DateTime } from "luxon";
 import Immutable from "immutable";
 import { CurrencyCode } from "./types";
-import { getHistoricalRates } from "./services/historicalRate";
+import { getHistoricalRates, filterHistoricalRates } from "./services/historicalRate";
 
 const app = express();
 app.use(express.json(), cors());
@@ -22,7 +22,11 @@ app.post('/exchange', async (req: Request, res: Response) => {
             return res.status(400).json({ error: 'Missing parameters. Required: from, to, amount' });
         }
 
-        const targetCurrencies = Array.isArray(to) ? Immutable.List<CurrencyCode>(to) : Immutable.List<CurrencyCode>([to]);
+        // Convert currency codes to lowercase here
+        const fromLower = from.toLowerCase() as CurrencyCode;
+        const targetCurrencies = Array.isArray(to) 
+            ? Immutable.List<CurrencyCode>(to.map(t => t.toLowerCase()))
+            : Immutable.List<CurrencyCode>([to.toLowerCase()]);
         
         let dateToUse = date;
         if (dateToUse) {
@@ -40,7 +44,7 @@ app.post('/exchange', async (req: Request, res: Response) => {
         }
 
         const result = await exchange(
-            from,
+            fromLower,
             targetCurrencies,
             parsedAmount,
             dateToUse
@@ -58,35 +62,31 @@ app.get('/history', async (req: Request, res: Response) => {
         return res.status(400).json({ error: 'Missing parameters. Required: base, start, end' });
     }
 
-    const base = req.query.base.toString();
-    const target = req.query.target;
     const startDate = req.query.start.toString();
     const endDate = req.query.end.toString();
 
     // Validate date format
-    if (!DateTime.fromISO(startDate).isValid || !DateTime.fromISO(endDate).isValid) {
+    const start = DateTime.fromISO(startDate);
+    const end = DateTime.fromISO(endDate);
+    
+    if (!start.isValid || !end.isValid) {
         return res.status(400).json({ error: 'Invalid date format. Use YYYY-MM-DD' });
     }
 
-    const targetCurrencies = target ? (Array.isArray(target) ? target : [target]) : [];
+    // Check if date range exceeds 9 months
+    const monthsDiff = end.diff(start, 'months').months;
+    if (monthsDiff > 9 || monthsDiff < 0) {
+        return res.status(400).json({ error: 'Date range must not exceed 9 months and end date must be after start date' });
+    }
+
+    const base = req.query.base.toString();
+    const target = req.query.target;
+
+    const targetCurrencies = target ? (Array.isArray(target) ? Immutable.List<CurrencyCode>(target.map(t => t.toString())) : Immutable.List<CurrencyCode>([target.toString()])) : Immutable.List<CurrencyCode>();
     
     try {
         const data = await getHistoricalRates(base.toLowerCase(), startDate, endDate);
-        
-        const filteredData = data.reduce((acc, rates, date) => {
-            const ratesData = (rates as Record<string, Record<string, number>>)[base] || {};
-            return acc.set(date, Immutable.Map({
-                date,
-                rates: Immutable.List(targetCurrencies).map(targetCurrency => 
-                    Immutable.Map({
-                        from: base,
-                        to: targetCurrency,
-                        rate: ratesData[targetCurrency as string] || null
-                    })
-                )
-            }));
-        }, Immutable.Map()).toJS();
-
+        const filteredData = filterHistoricalRates(data, base, targetCurrencies);
         return res.json(filteredData);
     } catch (error) {
         console.log(error)
